@@ -153,6 +153,9 @@
     .ai-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:600;background:var(--purple-bg);color:var(--purple);border:.5px solid var(--purple);margin-left:8px;vertical-align:middle;}
     .srb-pi.ai{background:var(--purple-bg);border-color:#c4a4e0;}
     .srb-pi.ai .srb-pi-label{color:var(--purple);}
+    .poc-provider-row{display:flex;gap:4px;margin-top:.4rem;}
+    .poc-provider-btn{flex:1;padding:4px 6px;font-size:.72rem;font-weight:600;border:1px solid var(--border-s);border-radius:4px;background:#f0efe9;color:#5a5952;cursor:pointer;transition:all .15s;text-align:center;}
+    .poc-provider-btn.active{background:var(--purple-bg);color:var(--purple);border-color:var(--purple);}
   </style>
 </head>
 <body>
@@ -244,6 +247,11 @@ add target=_blank to links</textarea>
             <span style="font-size:.75rem;font-weight:700;color:var(--purple)">🤖 Claude AI</span>
             <span id="poc-ai-status" style="font-size:.72rem;color:#5a5952">(optional — handles unrecognised rules)</span>
             <button class="run-srb-btn" id="poc-ai-key-btn" type="button" style="margin-left:auto;width:auto;padding:.3rem .7rem;font-size:.72rem">🔑 Set key</button>
+          </div>
+          <div class="poc-provider-row" id="poc-provider-row">
+            <button class="poc-provider-btn active" data-provider="anthropic" type="button">Claude</button>
+            <button class="poc-provider-btn" data-provider="openai" type="button">GPT-4o mini</button>
+            <button class="poc-provider-btn" data-provider="gemini" type="button">Gemini Flash</button>
           </div>
           <div id="poc-ai-key-row" style="display:none;margin-top:.4rem;gap:6px;align-items:center">
             <input type="password" id="poc-ai-key-input" style="flex:1;min-width:0;height:27px;padding:0 8px;font-family:var(--mono);font-size:.75rem;border:1px solid var(--border-s);border-radius:4px;background:#fff;color:var(--ink);outline:none;" placeholder="sk-ant-api03-…" autocomplete="off"/>
@@ -744,37 +752,48 @@ function pocApplyRules(html, rules) {
 function pocChgTag(el,tag){ var n=el.ownerDocument.createElement(tag); Array.prototype.slice.call(el.attributes).forEach(function(a){n.setAttribute(a.name,a.value);}); while(el.firstChild)n.appendChild(el.firstChild); el.parentNode.replaceChild(n,el); return n; }
 function pocUnwrap(el){ var p=el.parentNode; while(el.firstChild)p.insertBefore(el.firstChild,el); p.removeChild(el); }
 
-/* ── Claude AI helpers (shared key with index.html via same localStorage key) ── */
-var POC_AI_KEY = 'dochtml-ai-key';
-function pocGetKey() { try { return localStorage.getItem(POC_AI_KEY) || ''; } catch(e) { return ''; } }
-function pocSetKey(k) { try { if(k) localStorage.setItem(POC_AI_KEY,k); else localStorage.removeItem(POC_AI_KEY); } catch(e) {} }
+/* ── AI helpers — shared localStorage keys with index.html ── */
+var POC_AI_KEY      = 'dochtml-ai-key';
+var POC_AI_PROVIDER = 'dochtml-ai-provider';
+function pocGetKey()      { try { return localStorage.getItem(POC_AI_KEY) || ''; } catch(e) { return ''; } }
+function pocSetKey(k)     { try { if(k) localStorage.setItem(POC_AI_KEY,k); else localStorage.removeItem(POC_AI_KEY); } catch(e) {} }
+function pocGetProvider() { try { return localStorage.getItem(POC_AI_PROVIDER) || 'anthropic'; } catch(e) { return 'anthropic'; } }
+function pocSetProvider(p){ try { localStorage.setItem(POC_AI_PROVIDER,p); } catch(e) {} }
+
+var POC_SYSTEM = 'You are an HTML transformation assistant. Apply each plain-English instruction to the HTML the user provides. Return ONLY the modified HTML — no explanation, no markdown fences, no surrounding prose.';
+var POC_PLACEHOLDERS = { anthropic:'sk-ant-api03-…', openai:'sk-… or sk-proj-…', gemini:'AIza…' };
+
+function pocStripFences(t){ return t.replace(/^```html?\s*/i,'').replace(/\s*```\s*$/,'').trim(); }
 
 function pocCallAI(html, aiRules) {
   var key = pocGetKey();
   if (!key || !aiRules.length) return Promise.resolve(html);
-  var instructions = aiRules.map(function(r){ return r.raw; }).join('\n');
+  var provider = pocGetProvider();
+  var userMsg  = 'Instructions:\n' + aiRules.map(function(r){ return r.raw; }).join('\n') + '\n\nHTML:\n' + html;
+
+  if (provider === 'openai') {
+    return fetch('https://api.openai.com/v1/chat/completions', {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+      body: JSON.stringify({ model:'gpt-4o-mini', max_tokens:4096,
+        messages:[{role:'system',content:POC_SYSTEM},{role:'user',content:userMsg}] })
+    }).then(function(r){ if(!r.ok) throw new Error('API error '+r.status); return r.json(); })
+      .then(function(d){ var t=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content; if(!t) throw new Error('Empty OpenAI response'); return pocStripFences(t); });
+  }
+
+  if (provider === 'gemini') {
+    return fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key='+encodeURIComponent(key), {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ system_instruction:{parts:[{text:POC_SYSTEM}]}, contents:[{role:'user',parts:[{text:userMsg}]}] })
+    }).then(function(r){ if(!r.ok) throw new Error('API error '+r.status); return r.json(); })
+      .then(function(d){ var t=d.candidates&&d.candidates[0]&&d.candidates[0].content&&d.candidates[0].content.parts&&d.candidates[0].content.parts[0]&&d.candidates[0].content.parts[0].text; if(!t) throw new Error('Empty Gemini response'); return pocStripFences(t); });
+  }
+
+  /* Default: Anthropic */
   return fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-calls': 'true'
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 4096,
-      system: 'You are an HTML transformation assistant. Apply each plain-English instruction to the HTML the user provides. Return ONLY the modified HTML — no explanation, no markdown fences, no surrounding prose.',
-      messages: [{ role: 'user', content: 'Instructions:\n' + instructions + '\n\nHTML:\n' + html }]
-    })
-  }).then(function(res) {
-    if (!res.ok) throw new Error('API error ' + res.status);
-    return res.json();
-  }).then(function(data) {
-    var text = data.content && data.content[0] && data.content[0].text;
-    if (!text) throw new Error('Empty AI response');
-    return text.replace(/^```html?\s*/i,'').replace(/\s*```\s*$/,'').trim();
-  });
+    method:'POST', headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-calls':'true'},
+    body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:4096, system:POC_SYSTEM, messages:[{role:'user',content:userMsg}] })
+  }).then(function(r){ if(!r.ok) throw new Error('API error '+r.status); return r.json(); })
+    .then(function(d){ var t=d.content&&d.content[0]&&d.content[0].text; if(!t) throw new Error('Empty Claude response'); return pocStripFences(t); });
 }
 
 /* ── Live parse preview ── */
@@ -815,6 +834,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
   if (ta)  { ta.addEventListener('input',  function(){ clearTimeout(pocDebounce); pocDebounce=setTimeout(updatePocPreview,220); }); }
   if (tog) { tog.addEventListener('change', function(){ label.textContent=tog.checked?'Combine with 15 built-in rules':'Use my rules only (built-ins off)'; }); }
+
+  /* Provider selector */
+  var providerBtns = document.querySelectorAll('.poc-provider-btn');
+  function syncProviderUI() {
+    var p = pocGetProvider();
+    providerBtns.forEach(function(btn){ btn.classList.toggle('active', btn.dataset.provider === p); });
+    if (keyInput) keyInput.placeholder = POC_PLACEHOLDERS[p] || 'API key…';
+  }
+  providerBtns.forEach(function(btn) {
+    btn.addEventListener('click', function(){ pocSetProvider(btn.dataset.provider); syncProviderUI(); });
+  });
+  syncProviderUI();
 
   function syncAiStatus() {
     var on = !!pocGetKey();

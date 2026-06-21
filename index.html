@@ -745,7 +745,7 @@ body {
   .srb-parse-raw { display: none; }
 }
 
-/* ── Claude AI integration ── */
+/* ── AI integration ── */
 .srb-parse-item.ai { background: var(--editor-bg); border-color: var(--editor-color); }
 .srb-parse-item.ai .srb-parse-label { color: var(--editor-color); }
 .srb-ai-section { margin-top: .85rem; padding-top: .75rem; border-top: 0.5px solid var(--border); }
@@ -753,6 +753,9 @@ body {
 .srb-ai-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-3); display: flex; align-items: center; gap: 4px; }
 .srb-ai-active-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 20px; background: var(--editor-bg); color: var(--editor-color); border: 0.5px solid var(--editor-color); display: none; }
 .srb-ai-active-badge.show { display: inline-block; }
+.srb-ai-provider-row { display: flex; gap: 4px; margin-top: .5rem; }
+.srb-ai-provider-btn { flex: 1; padding: 4px 6px; font-size: 10.5px; font-weight: 600; border: 0.5px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text-3); cursor: pointer; transition: all .15s; text-align: center; }
+.srb-ai-provider-btn.active { background: var(--editor-bg); color: var(--editor-color); border-color: var(--editor-color); }
 .srb-ai-key-row { display: none; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: .5rem; }
 .srb-ai-key-row.open { display: flex; }
 .srb-ai-key-input { flex: 1; min-width: 180px; height: 30px; padding: 0 8px; font-family: var(--font-mono); font-size: 11.5px; border: 0.5px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text); outline: none; }
@@ -906,19 +909,24 @@ body {
             <div class="srb-ai-row">
               <span class="srb-ai-label">
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M5 1a4 4 0 100 8A4 4 0 005 1z" stroke="currentColor" stroke-width="1"/><path d="M5 4v2.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><circle cx="5" cy="8" r=".5" fill="currentColor"/></svg>
-                Claude AI for unrecognised rules
+                AI for unrecognised rules
               </span>
               <span class="srb-ai-active-badge" id="srb-ai-badge">🤖 AI active</span>
               <button class="btn btn-ghost btn-sm" id="srb-ai-key-btn" type="button" style="margin-left:auto;font-size:11px">🔑 Set API key</button>
             </div>
+            <div class="srb-ai-provider-row" id="srb-ai-provider-row">
+              <button class="srb-ai-provider-btn active" data-provider="anthropic" type="button">Claude</button>
+              <button class="srb-ai-provider-btn" data-provider="openai" type="button">GPT-4o mini</button>
+              <button class="srb-ai-provider-btn" data-provider="gemini" type="button">Gemini Flash</button>
+            </div>
             <div class="srb-ai-key-row" id="srb-ai-key-row">
               <input type="password" id="srb-ai-key-input" class="srb-ai-key-input"
                      placeholder="sk-ant-api03-…" autocomplete="off" spellcheck="false"
-                     aria-label="Claude API key" />
+                     aria-label="AI API key" />
               <button class="btn btn-primary btn-sm" id="srb-ai-save-btn" type="button">Save</button>
               <button class="btn btn-ghost btn-sm" id="srb-ai-clear-btn" type="button">Clear</button>
             </div>
-            <p class="srb-ai-note">Your key is stored in this browser only &mdash; never sent anywhere except Anthropic&rsquo;s API. Rules the built-in parser doesn&rsquo;t recognise (shown as 🤖) are sent to Claude when a key is set.</p>
+            <p class="srb-ai-note">Your key is stored in this browser only &mdash; never sent anywhere except the selected AI provider. Rules the built-in parser doesn&rsquo;t recognise (shown as 🤖) are sent to the AI when a key is set.</p>
           </div>
         </div>
       </div>
@@ -1729,36 +1737,86 @@ body {
 
   <script>
   /* ═══════════════════════════════════════════════════════════════════
-     AI ENGINE  (Claude API · optional · requires user-supplied key)
+     AI ENGINE  (Anthropic · OpenAI · Google Gemini · optional)
      Key stored in localStorage only — never sent anywhere except
-     Anthropic's API (api.anthropic.com/v1/messages).
+     the selected AI provider's API.
      ═══════════════════════════════════════════════════════════════════ */
   (function (global) {
     'use strict';
-    var STORAGE_KEY = 'dochtml-ai-key';
-    var AI_MODEL    = 'claude-haiku-4-5-20251001';
-    var API_URL     = 'https://api.anthropic.com/v1/messages';
+    var KEY_STORE      = 'dochtml-ai-key';
+    var PROVIDER_STORE = 'dochtml-ai-provider';
+
+    var SYSTEM_PROMPT = 'You are an HTML transformation assistant. Apply each plain-English instruction to the HTML the user provides. Return ONLY the modified HTML — no explanation, no markdown fences, no surrounding prose. Preserve all valid HTML structure. Do not add DOCTYPE, <html>, <head>, or <body> wrappers.';
 
     global.__aiGetKey = function () {
-      try { return localStorage.getItem(STORAGE_KEY) || ''; } catch (e) { return ''; }
+      try { return localStorage.getItem(KEY_STORE) || ''; } catch (e) { return ''; }
     };
     global.__aiSetKey = function (key) {
       try {
-        if (key && key.trim()) localStorage.setItem(STORAGE_KEY, key.trim());
-        else localStorage.removeItem(STORAGE_KEY);
+        if (key && key.trim()) localStorage.setItem(KEY_STORE, key.trim());
+        else localStorage.removeItem(KEY_STORE);
       } catch (e) { /* private browsing */ }
+    };
+    global.__aiGetProvider = function () {
+      try { return localStorage.getItem(PROVIDER_STORE) || 'anthropic'; } catch (e) { return 'anthropic'; }
+    };
+    global.__aiSetProvider = function (p) {
+      try { localStorage.setItem(PROVIDER_STORE, p); } catch (e) {}
     };
     global.__aiEnabled = function () { return !!global.__aiGetKey(); };
 
-    /* Apply unrecognised plain-English rules to HTML via Claude.
+    function stripFences(text) {
+      return text.replace(/^```html?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+    }
+    function handleErrResponse(res) {
+      return res.json().catch(function () { return {}; }).then(function (body) {
+        throw new Error((body.error && body.error.message) || 'API error ' + res.status);
+      });
+    }
+
+    /* Apply unrecognised plain-English rules to HTML via the selected AI provider.
        Returns a Promise resolving to the transformed HTML string. */
     global.__aiApplyRules = function (html, unrecognisedRules) {
       var key = global.__aiGetKey();
-      if (!key || !unrecognisedRules || !unrecognisedRules.length) {
-        return Promise.resolve(html);
+      if (!key || !unrecognisedRules || !unrecognisedRules.length) return Promise.resolve(html);
+      var provider = global.__aiGetProvider();
+      var userMsg  = 'Instructions (one per line):\n' + unrecognisedRules.map(function (r) { return r.raw; }).join('\n') + '\n\nHTML:\n' + html;
+
+      if (provider === 'openai') {
+        return fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            max_tokens: 8096,
+            messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: userMsg }]
+          })
+        }).then(function (res) { if (!res.ok) return handleErrResponse(res); return res.json(); })
+          .then(function (data) {
+            var text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+            if (!text) throw new Error('Empty response from OpenAI');
+            return stripFences(text);
+          });
       }
-      var instructions = unrecognisedRules.map(function (r) { return r.raw; }).join('\n');
-      return fetch(API_URL, {
+
+      if (provider === 'gemini') {
+        return fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + encodeURIComponent(key), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+            contents: [{ role: 'user', parts: [{ text: userMsg }] }]
+          })
+        }).then(function (res) { if (!res.ok) return handleErrResponse(res); return res.json(); })
+          .then(function (data) {
+            var text = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text;
+            if (!text) throw new Error('Empty response from Gemini');
+            return stripFences(text);
+          });
+      }
+
+      /* Default: Anthropic Claude */
+      return fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1767,23 +1825,17 @@ body {
           'anthropic-dangerous-direct-browser-calls': 'true'
         },
         body: JSON.stringify({
-          model: AI_MODEL,
+          model: 'claude-haiku-4-5-20251001',
           max_tokens: 8096,
-          system: 'You are an HTML transformation assistant. Apply each plain-English instruction to the HTML the user provides. Return ONLY the modified HTML — no explanation, no markdown fences, no surrounding prose. Preserve all valid HTML structure. Do not add DOCTYPE, <html>, <head>, or <body> wrappers.',
-          messages: [{ role: 'user', content: 'Instructions (one per line):\n' + instructions + '\n\nHTML:\n' + html }]
+          system: SYSTEM_PROMPT,
+          messages: [{ role: 'user', content: userMsg }]
         })
-      }).then(function (res) {
-        if (!res.ok) {
-          return res.json().catch(function () { return {}; }).then(function (body) {
-            throw new Error((body.error && body.error.message) || 'API error ' + res.status);
-          });
-        }
-        return res.json();
-      }).then(function (data) {
-        var text = data.content && data.content[0] && data.content[0].text;
-        if (!text) throw new Error('Empty response from AI');
-        return text.replace(/^```html?\s*/i, '').replace(/\s*```\s*$/, '').trim();
-      });
+      }).then(function (res) { if (!res.ok) return handleErrResponse(res); return res.json(); })
+        .then(function (data) {
+          var text = data.content && data.content[0] && data.content[0].text;
+          if (!text) throw new Error('Empty response from Claude');
+          return stripFences(text);
+        });
     };
   }(window));
   </script>
@@ -1957,25 +2009,48 @@ body {
       updateParsePreview();
     })();
 
-    /* ── AI key UI ── */
+    /* ── AI key + provider UI ── */
     (function () {
-      var keyBtn   = document.getElementById('srb-ai-key-btn');
-      var keyRow   = document.getElementById('srb-ai-key-row');
-      var keyInput = document.getElementById('srb-ai-key-input');
-      var saveBtn  = document.getElementById('srb-ai-save-btn');
-      var clearBtn = document.getElementById('srb-ai-clear-btn');
-      var badge    = document.getElementById('srb-ai-badge');
-      var hdrBadge = document.getElementById('srb-hdr-ai');
-      var srbInput = document.getElementById('srb-input');
+      var keyBtn       = document.getElementById('srb-ai-key-btn');
+      var keyRow       = document.getElementById('srb-ai-key-row');
+      var keyInput     = document.getElementById('srb-ai-key-input');
+      var saveBtn      = document.getElementById('srb-ai-save-btn');
+      var clearBtn     = document.getElementById('srb-ai-clear-btn');
+      var badge        = document.getElementById('srb-ai-badge');
+      var hdrBadge     = document.getElementById('srb-hdr-ai');
+      var srbInput     = document.getElementById('srb-input');
+      var providerBtns = document.querySelectorAll('.srb-ai-provider-btn');
+
+      var PLACEHOLDERS = {
+        anthropic: 'sk-ant-api03-…',
+        openai:    'sk-… or sk-proj-…',
+        gemini:    'AIza…'
+      };
+
+      function syncProvider() {
+        var p = window.__aiGetProvider ? window.__aiGetProvider() : 'anthropic';
+        providerBtns.forEach(function (btn) {
+          btn.classList.toggle('active', btn.dataset.provider === p);
+        });
+        if (keyInput) keyInput.placeholder = PLACEHOLDERS[p] || 'API key…';
+      }
 
       function syncBadges() {
         var on = window.__aiEnabled && window.__aiEnabled();
         if (badge)    badge.classList.toggle('show', on);
         if (hdrBadge) hdrBadge.classList.toggle('show', on);
         if (keyBtn)   keyBtn.textContent = on ? '🔑 Change key' : '🔑 Set API key';
-        /* Refresh parse list so AI-pending state reflects current key */
         if (srbInput) srbInput.dispatchEvent(new Event('input'));
       }
+
+      providerBtns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          if (window.__aiSetProvider) window.__aiSetProvider(btn.dataset.provider);
+          syncProvider();
+        });
+      });
+
+      syncProvider();
       syncBadges();
 
       if (keyBtn) keyBtn.addEventListener('click', function () {
