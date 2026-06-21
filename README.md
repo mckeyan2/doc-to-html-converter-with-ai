@@ -2,7 +2,7 @@
 
 Convert Word, Excel & typed text to clean, semantic HTML5 — entirely in your browser.
 
-**Live app:** https://mckeyan2.github.io/docs-to-html-code/
+**Live app:** https://mckeyan2.github.io/doc-to-html-converter-with-ai/
 
 ## Features
 
