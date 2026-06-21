@@ -883,6 +883,7 @@ body {
               <span id="srb-toggle-label">Combine with built-in rules</span>
             </label>
             <button class="btn btn-ghost btn-sm" id="srb-clear-btn" type="button">Clear rules</button>
+            <button class="btn btn-primary btn-sm" id="srb-apply-btn" type="button" style="display:none">▶ Apply Rules</button>
           </div>
           <div class="srb-examples">
             <div class="srb-examples-title" aria-label="Supported phrasings">
@@ -1871,7 +1872,7 @@ body {
     var modeUpload    = document.getElementById('mode-upload');
     var modeEditor    = document.getElementById('mode-editor');
 
-    var state = { htmlSource: '', baseName: 'output' };
+    var state = { htmlSource: '', rawHtml: '', baseName: 'output' };
 
     /* ── Smart Rule Builder state helper ── */
     function getRuleState() {
@@ -2148,6 +2149,7 @@ body {
       editorStatus.classList.add('hidden');
       var ruleState   = getRuleState();
       var sanitized   = window.__sanitize(raw);
+      state.rawHtml   = sanitized; state.baseName = 'editor-output';
       var transformed = window.__transform(sanitized, ruleState);
       var aiRules     = ruleState.unrecognizedRules;
       var useAi = window.__aiEnabled && window.__aiEnabled() && aiRules && aiRules.length;
@@ -2160,6 +2162,7 @@ body {
         previewPane.innerHTML = html; codePane.textContent = indented;
         activateTab('preview'); resultPanel.classList.remove('hidden');
         showStatus(editorStatus, 'Converted successfully.', 'ok');
+        if (state._showApplyBtn) state._showApplyBtn();
         resultPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }).catch(function (err) {
         /* Graceful degradation: show result without AI rules */
@@ -2172,6 +2175,47 @@ body {
         resultPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       });
     });
+
+    /* ── Apply Rules button ── */
+    (function () {
+      var applyBtn     = document.getElementById('srb-apply-btn');
+      var uploadStatus = document.getElementById('upload-status');
+      var editorStatus = document.getElementById('editor-status');
+
+      /* Show the button once content has been converted */
+      function showApplyBtn() {
+        if (applyBtn && state.rawHtml) applyBtn.style.display = '';
+      }
+
+      /* Re-run conversion on the stored raw HTML with current rules */
+      applyBtn && applyBtn.addEventListener('click', function () {
+        if (!state.rawHtml) return;
+        var ruleState   = getRuleState();
+        var transformed = window.__transform(state.rawHtml, ruleState);
+        var aiRules     = ruleState.unrecognizedRules;
+        var statusEl    = uploadStatus || editorStatus;
+        var useAi = window.__aiEnabled && window.__aiEnabled() && aiRules && aiRules.length;
+        if (useAi) showStatus(statusEl, 'Applying AI rules…', 'ok');
+        var step = useAi ? window.__aiApplyRules(transformed, aiRules) : Promise.resolve(transformed);
+        step.then(function (html) {
+          var indented = window.__indent(html);
+          state.htmlSource = indented;
+          previewPane.innerHTML = html; codePane.textContent = indented;
+          activateTab('preview'); resultPanel.classList.remove('hidden');
+          showStatus(statusEl, 'Rules applied.', 'ok');
+          resultPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }).catch(function (err) {
+          var indented = window.__indent(transformed);
+          state.htmlSource = indented;
+          previewPane.innerHTML = transformed; codePane.textContent = indented;
+          activateTab('preview'); resultPanel.classList.remove('hidden');
+          showStatus(statusEl, 'AI error: ' + (err.message || err) + ' — shown without AI rules.', 'err');
+        });
+      });
+
+      /* Expose so conversion paths can call it after setting state.rawHtml */
+      state._showApplyBtn = showApplyBtn;
+    })();
 
     function processFile(file) {
       if (!file) return;
@@ -2189,6 +2233,7 @@ body {
         mammoth.convertToHtml({ arrayBuffer: e.target.result })
           .then(function (result) {
             var ruleState   = getRuleState();
+            state.rawHtml   = result.value;
             var transformed = window.__transform(result.value, ruleState);
             var aiRules     = ruleState.unrecognizedRules;
             var useAi = window.__aiEnabled && window.__aiEnabled() && aiRules && aiRules.length;
@@ -2200,6 +2245,7 @@ body {
               previewPane.innerHTML = html; codePane.textContent = indented;
               activateTab('preview'); resultPanel.classList.remove('hidden');
               showStatus(uploadStatus, 'Converted successfully.', 'ok');
+              if (state._showApplyBtn) state._showApplyBtn();
             });
           }).catch(function (err) { showStatus(uploadStatus, 'Conversion failed: ' + (err.message || err), 'err'); });
       };
@@ -2229,6 +2275,7 @@ body {
             html += '  </tbody>\n</table>\n\n';
           });
           html = html.trim();
+          state.rawHtml = html;
           var ruleState = getRuleState();
           html = window.__transform(html, ruleState);
           var aiRules = ruleState.unrecognizedRules;
@@ -2241,6 +2288,7 @@ body {
             previewPane.innerHTML = finalHtml; codePane.textContent = indented;
             activateTab('preview'); resultPanel.classList.remove('hidden');
             showStatus(uploadStatus, 'Converted successfully.', 'ok');
+            if (state._showApplyBtn) state._showApplyBtn();
           }).catch(function (err2) { showStatus(uploadStatus, 'Conversion failed: ' + (err2.message || err2), 'err'); });
         } catch (err) { showStatus(uploadStatus, 'Conversion failed: ' + (err.message || err), 'err'); }
       };
