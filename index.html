@@ -2171,7 +2171,7 @@ body {
         fileLabel.textContent = 'Text Editor';
         previewPane.innerHTML = transformed; codePane.textContent = indented;
         activateTab('preview'); resultPanel.classList.remove('hidden');
-        showStatus(editorStatus, 'AI error: ' + (err.message || err) + ' — shown without AI rules.', 'err');
+        showStatus(editorStatus, aiErrMsg(err), 'err');
         resultPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       });
     });
@@ -2209,7 +2209,7 @@ body {
           state.htmlSource = indented;
           previewPane.innerHTML = transformed; codePane.textContent = indented;
           activateTab('preview'); resultPanel.classList.remove('hidden');
-          showStatus(statusEl, 'AI error: ' + (err.message || err) + ' — shown without AI rules.', 'err');
+          showStatus(statusEl, aiErrMsg(err), 'err');
         });
       });
 
@@ -2246,6 +2246,14 @@ body {
               activateTab('preview'); resultPanel.classList.remove('hidden');
               showStatus(uploadStatus, 'Converted successfully.', 'ok');
               if (state._showApplyBtn) state._showApplyBtn();
+            }).catch(function (aiErr) {
+              /* AI failed — show result without AI rules */
+              var indented = window.__indent(transformed);
+              state.htmlSource = indented; fileLabel.textContent = file.name;
+              previewPane.innerHTML = transformed; codePane.textContent = indented;
+              activateTab('preview'); resultPanel.classList.remove('hidden');
+              showStatus(uploadStatus, aiErrMsg(aiErr), 'err');
+              if (state._showApplyBtn) state._showApplyBtn();
             });
           }).catch(function (err) { showStatus(uploadStatus, 'Conversion failed: ' + (err.message || err), 'err'); });
       };
@@ -2277,11 +2285,11 @@ body {
           html = html.trim();
           state.rawHtml = html;
           var ruleState = getRuleState();
-          html = window.__transform(html, ruleState);
+          var transformedXl = window.__transform(html, ruleState);
           var aiRules = ruleState.unrecognizedRules;
           var useAi = window.__aiEnabled && window.__aiEnabled() && aiRules && aiRules.length;
           if (useAi) showStatus(uploadStatus, 'Applying AI rules…', 'ok');
-          var step = useAi ? window.__aiApplyRules(html, aiRules) : Promise.resolve(html);
+          var step = useAi ? window.__aiApplyRules(transformedXl, aiRules) : Promise.resolve(transformedXl);
           step.then(function (finalHtml) {
             var indented = window.__indent(finalHtml);
             state.htmlSource = indented; fileLabel.textContent = file.name;
@@ -2289,7 +2297,15 @@ body {
             activateTab('preview'); resultPanel.classList.remove('hidden');
             showStatus(uploadStatus, 'Converted successfully.', 'ok');
             if (state._showApplyBtn) state._showApplyBtn();
-          }).catch(function (err2) { showStatus(uploadStatus, 'Conversion failed: ' + (err2.message || err2), 'err'); });
+          }).catch(function (aiErr) {
+            /* AI failed — show result without AI rules */
+            var indented = window.__indent(transformedXl);
+            state.htmlSource = indented; fileLabel.textContent = file.name;
+            previewPane.innerHTML = transformedXl; codePane.textContent = indented;
+            activateTab('preview'); resultPanel.classList.remove('hidden');
+            showStatus(uploadStatus, aiErrMsg(aiErr), 'err');
+            if (state._showApplyBtn) state._showApplyBtn();
+          });
         } catch (err) { showStatus(uploadStatus, 'Conversion failed: ' + (err.message || err), 'err'); }
       };
       reader.onerror = function () { showStatus(uploadStatus, 'Could not read the file.', 'err'); };
@@ -2297,6 +2313,13 @@ body {
     }
 
     function showStatus(el, msg, cls) { el.textContent = msg; el.className = 'status-bar ' + cls; el.classList.remove('hidden'); }
+    function aiErrMsg(err) {
+      var msg = err && (err.message || String(err));
+      if (!msg || msg.toLowerCase().indexOf('fetch') !== -1) {
+        return 'AI unreachable — check your API key and provider, then try again. Result shown without AI rules.';
+      }
+      return 'AI error: ' + msg + ' — result shown without AI rules.';
+    }
     function activateTab(name) {
       tabs.forEach(function (b) { b.classList.toggle('active', b.dataset.tab === name); });
       previewPane.classList.toggle('hidden', name !== 'preview');
