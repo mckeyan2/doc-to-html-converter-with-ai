@@ -756,6 +756,8 @@ body {
 .srb-ai-provider-row { display: flex; gap: 4px; margin-top: .5rem; }
 .srb-ai-provider-btn { flex: 1; padding: 4px 6px; font-size: 10.5px; font-weight: 600; border: 0.5px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text-3); cursor: pointer; transition: all .15s; text-align: center; }
 .srb-ai-provider-btn.active { background: var(--editor-bg); color: var(--editor-color); border-color: var(--editor-color); }
+.srb-ai-proxy-warn { display: none; font-size: 10.5px; color: #b45309; background: #fef3c7; border: 0.5px solid #fcd34d; border-radius: var(--radius-sm); padding: 4px 8px; margin-top: .4rem; }
+.srb-ai-proxy-warn.show { display: block; }
 .srb-ai-key-row { display: none; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: .5rem; }
 .srb-ai-key-row.open { display: flex; }
 .srb-ai-key-input { flex: 1; min-width: 180px; height: 30px; padding: 0 8px; font-family: var(--font-mono); font-size: 11.5px; border: 0.5px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text); outline: none; }
@@ -920,6 +922,7 @@ body {
               <button class="srb-ai-provider-btn" data-provider="openai" type="button">GPT-4o mini</button>
               <button class="srb-ai-provider-btn" data-provider="gemini" type="button">Gemini Flash</button>
             </div>
+            <p class="srb-ai-proxy-warn" id="srb-ai-proxy-warn">GPT-4o mini requires a backend proxy &mdash; OpenAI blocks direct browser calls. Use Claude or Gemini Flash instead.</p>
             <div class="srb-ai-key-row" id="srb-ai-key-row">
               <input type="password" id="srb-ai-key-input" class="srb-ai-key-input"
                      placeholder="sk-ant-api03-…" autocomplete="off" spellcheck="false"
@@ -2028,12 +2031,14 @@ body {
         gemini:    'AIza…'
       };
 
+      var proxyWarn = document.getElementById('srb-ai-proxy-warn');
       function syncProvider() {
         var p = window.__aiGetProvider ? window.__aiGetProvider() : 'anthropic';
         providerBtns.forEach(function (btn) {
           btn.classList.toggle('active', btn.dataset.provider === p);
         });
         if (keyInput) keyInput.placeholder = PLACEHOLDERS[p] || 'API key…';
+        if (proxyWarn) proxyWarn.classList.toggle('show', p === 'openai');
       }
 
       function syncBadges() {

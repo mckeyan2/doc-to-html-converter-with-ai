@@ -156,6 +156,8 @@
     .poc-provider-row{display:flex;gap:4px;margin-top:.4rem;}
     .poc-provider-btn{flex:1;padding:4px 6px;font-size:.72rem;font-weight:600;border:1px solid var(--border-s);border-radius:4px;background:#f0efe9;color:#5a5952;cursor:pointer;transition:all .15s;text-align:center;}
     .poc-provider-btn.active{background:var(--purple-bg);color:var(--purple);border-color:var(--purple);}
+    .poc-proxy-warn{display:none;font-size:.7rem;color:#b45309;background:#fef3c7;border:0.5px solid #fcd34d;border-radius:4px;padding:4px 8px;margin-top:.4rem;}
+    .poc-proxy-warn.show{display:block;}
   </style>
 </head>
 <body>
@@ -253,6 +255,7 @@ add target=_blank to links</textarea>
             <button class="poc-provider-btn" data-provider="openai" type="button">GPT-4o mini</button>
             <button class="poc-provider-btn" data-provider="gemini" type="button">Gemini Flash</button>
           </div>
+          <p class="poc-proxy-warn" id="poc-proxy-warn">GPT-4o mini requires a backend proxy &mdash; OpenAI blocks direct browser calls. Use Claude or Gemini Flash instead.</p>
           <div id="poc-ai-key-row" style="display:none;margin-top:.4rem;gap:6px;align-items:center">
             <input type="password" id="poc-ai-key-input" style="flex:1;min-width:0;height:27px;padding:0 8px;font-family:var(--mono);font-size:.75rem;border:1px solid var(--border-s);border-radius:4px;background:#fff;color:var(--ink);outline:none;" placeholder="sk-ant-api03-…" autocomplete="off"/>
             <button class="run-srb-btn" id="poc-ai-save-btn" type="button" style="width:auto;padding:.3rem .7rem;font-size:.72rem">Save</button>
@@ -837,10 +840,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
   /* Provider selector */
   var providerBtns = document.querySelectorAll('.poc-provider-btn');
+  var pocProxyWarn = document.getElementById('poc-proxy-warn');
   function syncProviderUI() {
     var p = pocGetProvider();
     providerBtns.forEach(function(btn){ btn.classList.toggle('active', btn.dataset.provider === p); });
     if (keyInput) keyInput.placeholder = POC_PLACEHOLDERS[p] || 'API key…';
+    if (pocProxyWarn) pocProxyWarn.classList.toggle('show', p === 'openai');
   }
   providerBtns.forEach(function(btn) {
     btn.addEventListener('click', function(){ pocSetProvider(btn.dataset.provider); syncProviderUI(); });
