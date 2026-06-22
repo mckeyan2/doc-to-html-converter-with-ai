@@ -2316,6 +2316,9 @@ body {
     function aiErrMsg(err) {
       var msg = err && (err.message || String(err));
       if (!msg || msg.toLowerCase().indexOf('fetch') !== -1) {
+        if (window.location.protocol === 'file:') {
+          return 'AI blocked: the page is open as a local file (file://) which browsers block from calling external APIs. Serve it with a local server instead — e.g. run “python -m http.server 8080” in this folder, then open http://localhost:8080. Result shown without AI rules.';
+        }
         return 'AI unreachable — check your API key and provider, then try again. Result shown without AI rules.';
       }
       return 'AI error: ' + msg + ' — result shown without AI rules.';
