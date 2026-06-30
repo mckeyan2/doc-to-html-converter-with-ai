@@ -54,6 +54,11 @@
     .demo-box-header{background:#f0efe9;border-bottom:1px solid var(--border);padding:.6rem 1rem;font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#5a5952;display:flex;align-items:center;gap:6px;}
     .demo-box-body{padding:1rem;}
 
+    .demo-before-box{min-height:180px;max-height:260px;overflow:auto;border:1px solid var(--border-s);border-radius:6px;padding:.75rem 1rem;font-size:.85rem;line-height:1.65;color:var(--ink);background:#fff;}
+    .demo-before-box h1,.demo-before-box h2{font-size:1.1rem;font-weight:700;margin:.4rem 0 .25rem;}
+    .demo-before-box p{margin:.3rem 0;}
+    .demo-before-box table{border-collapse:collapse;margin:.4rem 0;font-size:.82rem;}
+    .demo-before-box td,.demo-before-box th{border:1px solid var(--border);padding:3px 8px;}
     textarea{width:100%;min-height:180px;border:1px solid var(--border-s);border-radius:6px;padding:.75rem;font-family:var(--mono);font-size:.8rem;line-height:1.6;resize:vertical;color:var(--ink);background:#fff;outline:none;}
     textarea:focus{border-color:#9a9890;}
     .convert-btn{margin-top:.6rem;width:100%;padding:.65rem;background:var(--ink);color:#fff;border:none;border-radius:6px;font-weight:600;font-size:.85rem;cursor:pointer;transition:opacity .15s;}
@@ -196,28 +201,12 @@
 
   <!-- LIVE DEMO -->
   <div class="section-title">Live Demo</div>
-  <div class="section-sub">A pre-filled example auto-runs on load — showing all built-in conversion rules in action. Edit the input below or paste your own HTML and click Run.</div>
+  <div class="section-sub">A pre-filled example auto-runs on load — showing all built-in conversion rules in action.</div>
   <div class="demo-grid">
     <div class="demo-box">
-      <div class="demo-box-header">📥 Input HTML (paste here)</div>
+      <div class="demo-box-header">📄 Before (document view)</div>
       <div class="demo-box-body">
-        <textarea id="demo-input" spellcheck="false"><!--[if gte mso 9]><xml><w:WordDocument/></xml><![endif]-->
-<h1>Company Overview</h1>
-<p>Call us at <b>044-1234567</b> or Fax: 044-9999999</p>
-<p><b>John</b><b> Smith</b> is the CEO.</p>
-<p>Note: <i>important notice</i> and <em>key emphasis</em>.</p>
-<p>Formula: H<sub>2</sub>O and x<sup>2</sup> + y<sup>2</sup></p>
-<p>This product is <s>discontinued</s> and this feature is <del>removed</del>.</p>
-<p><a href="file://www.google.com/search"><strong>Search Here</strong></a></p>
-<p>Visit us: <a href="file://internal/document/about-us">About Us</a></p>
-<p>Broken link: <a href="https://example.com>click here</a></p>
-<p>First paragraph<p>Second paragraph missing a close tag</p>
-<table>
-  <tr><td><b>Name</b></td><td><b>Role</b></td></tr>
-  <tr><td>Alice</td><td>Engineer</td></tr>
-  <tr><td>Bob</td><td>Designer</td></tr>
-</table>
-<p>Copyright (C) 2024. All rights reserved (TM)</p></textarea>
+        <div class="demo-before-box" id="demo-input"></div>
         <button class="convert-btn" onclick="runDemo()">▶ Run Conversion Rules</button>
       </div>
     </div>
@@ -417,10 +406,27 @@ add target=_blank to links</textarea>
 /* Demo runner — applies all 15 rules client-side */
 var demoFixes = [];
 
+var DEMO_INPUT_HTML = '<!--[if gte mso 9]><xml><w:WordDocument/></xml><![endif]-->\n'
+  + '<h1>Company Overview</h1>\n'
+  + '<p>Call us at <b>044-1234567</b> or Fax: 044-9999999</p>\n'
+  + '<p><b>John</b><b> Smith</b> is the CEO.</p>\n'
+  + '<p>Note: <i>important notice</i> and <em>key emphasis</em>.</p>\n'
+  + '<p>Formula: H<sub>2</sub>O and x<sup>2</sup> + y<sup>2</sup></p>\n'
+  + '<p>This product is <s>discontinued</s> and this feature is <del>removed</del>.</p>\n'
+  + '<p><a href="file://www.google.com/search"><strong>Search Here</strong></a></p>\n'
+  + '<p>Visit us: <a href="file://internal/document/about-us">About Us</a></p>\n'
+  + '<p>Broken link: <a href="https://example.com>click here</a></p>\n'
+  + '<p>First paragraph<p>Second paragraph missing a close tag</p>\n'
+  + '<table>\n'
+  + '  <tr><td><b>Name</b></td><td><b>Role</b></td></tr>\n'
+  + '  <tr><td>Alice</td><td>Engineer</td></tr>\n'
+  + '  <tr><td>Bob</td><td>Designer</td></tr>\n'
+  + '</table>\n'
+  + '<p>Copyright (C) 2024. All rights reserved (TM)</p>';
+
 function runDemo() {
   demoFixes = [];
-  var raw = document.getElementById('demo-input').value;
-  var out = applyRules(raw);
+  var out = applyRules(DEMO_INPUT_HTML);
   document.getElementById('demo-output').innerHTML = syntaxHL(escForDisplay(out));
   renderFixes();
 }
@@ -669,7 +675,10 @@ function syntaxHL(s){
     return '&lt;<span class="hl-tag">'+tag+'</span>'+hAttrs+'&gt;';
   });
 }
-window.addEventListener('DOMContentLoaded', runDemo);
+window.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('demo-input').innerHTML = DEMO_INPUT_HTML;
+  runDemo();
+});
 
 /* ═══════════════════════════════════════════════════════════════════
    SMART RULE BUILDER — POC demo (self-contained NL parser)
