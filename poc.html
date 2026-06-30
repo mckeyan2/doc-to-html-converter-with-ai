@@ -196,7 +196,7 @@
 
   <!-- LIVE DEMO -->
   <div class="section-title">Live Demo</div>
-  <div class="section-sub">Paste any text with basic HTML below and see it processed through the conversion rules.</div>
+  <div class="section-sub">A pre-filled example auto-runs on load — showing all built-in conversion rules in action. Edit the input below or paste your own HTML and click Run.</div>
   <div class="demo-grid">
     <div class="demo-box">
       <div class="demo-box-header">📥 Input HTML (paste here)</div>
@@ -311,7 +311,7 @@ add target=_blank to links</textarea>
     <tbody>
       <tr><td>1</td><td>Heading normalise</td><td><code>&lt;h1&gt;</code></td><td><code>&lt;h2&gt;</code></td></tr>
       <tr><td>2</td><td>Phone → tel: link</td><td>044-1234567</td><td><code>&lt;a href="tel:0441234567"&gt;</code> (fax numbers skipped)</td></tr>
-      <tr><td>3</td><td>Sup/Sub → Unicode</td><td><code>&lt;sup&gt;TM&lt;/sup&gt;</code></td><td><code>&amp;trade;</code></td></tr>
+      <tr><td>3</td><td>Sup/Sub → Unicode / symbol entities</td><td><code>&lt;sup&gt;2&lt;/sup&gt;</code> / <code>&lt;sub&gt;2&lt;/sub&gt;</code>; also <code>&lt;sup&gt;TM&lt;/sup&gt;</code></td><td><code>&amp;sup2;</code> (²) / <code>&amp;#x2082;</code> (₂); <code>&lt;sup&gt;TM&lt;/sup&gt;</code> → <code>&amp;trade;</code></td></tr>
       <tr><td>4</td><td>b → strong</td><td><code>&lt;b&gt;</code></td><td><code>&lt;strong&gt;</code></td></tr>
       <tr><td>5</td><td>i/em → strong (short) or unwrap (long)</td><td><code>&lt;i&gt;Note&lt;/i&gt;</code></td><td><code>&lt;strong&gt;Note&lt;/strong&gt;</code></td></tr>
       <tr><td>6</td><td>Remove underline</td><td><code>&lt;u&gt;</code></td><td>unwrapped (text kept)</td></tr>
@@ -329,7 +329,7 @@ add target=_blank to links</textarea>
 
   <!-- TEST REPORT -->
   <div class="section-title">Post-Conversion Test Report</div>
-  <div class="section-sub">Every conversion automatically runs 21 checks against the output. Download a full HTML report with line-numbered error locations.</div>
+  <div class="section-sub">Every conversion automatically runs 22 checks against the output. Download a full HTML report with line-numbered error locations.</div>
 
   <div class="report-grid">
     <div>
@@ -404,7 +404,6 @@ add target=_blank to links</textarea>
     <div class="feat"><div class="feat-icon">📊</div><h3>Excel & CSV Support</h3><p>Every sheet becomes a labelled HTML table. Supports .xlsx, .xls, and .csv formats.</p></div>
     <div class="feat"><div class="feat-icon">🏷️</div><h3>Semantic Tables</h3><p>Bold first rows automatically become <code>&lt;th scope="col"&gt;</code> with proper <code>&lt;thead&gt;</code> and <code>&lt;tbody&gt;</code>.</p></div>
     <div class="feat"><div class="feat-icon">📋</div><h3>Copy & Download</h3><p>One-click copy to clipboard or download as .txt. Preview rendered output alongside the code.</p></div>
-    <div class="feat"><div class="feat-icon">🌙</div><h3>Dark Mode</h3><p>Automatically adapts to your system's light or dark preference using CSS custom properties.</p></div>
     <div class="feat"><div class="feat-icon">🧪</div><h3>Built-in Test Suite</h3><p>22 automated checks validate every conversion. Auto-fixed issues are shown in purple with a before → after diff; failures report the exact line number.</p></div>
   </div>
 </div>
