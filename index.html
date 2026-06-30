@@ -921,8 +921,10 @@ body {
               <button class="srb-ai-provider-btn active" data-provider="anthropic" type="button">Claude</button>
               <button class="srb-ai-provider-btn" data-provider="openai" type="button">GPT-4o mini</button>
               <button class="srb-ai-provider-btn" data-provider="gemini" type="button">Gemini Flash</button>
+              <button class="srb-ai-provider-btn" data-provider="ollama" type="button">Ollama (free)</button>
             </div>
             <p class="srb-ai-proxy-warn" id="srb-ai-proxy-warn">GPT-4o mini requires a backend proxy &mdash; OpenAI blocks direct browser calls. Use Claude or Gemini Flash instead.</p>
+            <p class="srb-ai-proxy-warn" id="srb-ai-ollama-warn">Ollama must be running locally. Enable browser access by starting it with <code>OLLAMA_ORIGINS=* ollama serve</code> (or set that env var). No API key needed &mdash; just pick your model below.</p>
             <div class="srb-ai-key-row" id="srb-ai-key-row">
               <input type="password" id="srb-ai-key-input" class="srb-ai-key-input"
                      placeholder="sk-ant-api03-…" autocomplete="off" spellcheck="false"
@@ -1741,7 +1743,7 @@ body {
 
   <script>
   /* ═══════════════════════════════════════════════════════════════════
-     AI ENGINE  (Anthropic · OpenAI · Google Gemini · optional)
+     AI ENGINE  (Anthropic · OpenAI · Google Gemini · Ollama · optional)
      Key stored in localStorage only — never sent anywhere except
      the selected AI provider's API.
      ═══════════════════════════════════════════════════════════════════ */
@@ -1767,7 +1769,10 @@ body {
     global.__aiSetProvider = function (p) {
       try { localStorage.setItem(PROVIDER_STORE, p); } catch (e) {}
     };
-    global.__aiEnabled = function () { return !!global.__aiGetKey(); };
+    global.__aiEnabled = function () {
+      if (global.__aiGetProvider() === 'ollama') return true;
+      return !!global.__aiGetKey();
+    };
 
     function stripFences(text) {
       return text.replace(/^```html?\s*/i, '').replace(/\s*```\s*$/, '').trim();
@@ -1782,9 +1787,27 @@ body {
        Returns a Promise resolving to the transformed HTML string. */
     global.__aiApplyRules = function (html, unrecognisedRules) {
       var key = global.__aiGetKey();
-      if (!key || !unrecognisedRules || !unrecognisedRules.length) return Promise.resolve(html);
       var provider = global.__aiGetProvider();
+      if (provider !== 'ollama' && !key) return Promise.resolve(html);
+      if (!unrecognisedRules || !unrecognisedRules.length) return Promise.resolve(html);
       var userMsg  = 'Instructions (one per line):\n' + unrecognisedRules.map(function (r) { return r.raw; }).join('\n') + '\n\nHTML:\n' + html;
+
+      if (provider === 'ollama') {
+        var ollamaModel = key || 'llama3.2';
+        return fetch('http://localhost:11434/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: ollamaModel,
+            messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: userMsg }]
+          })
+        }).then(function (res) { if (!res.ok) return handleErrResponse(res); return res.json(); })
+          .then(function (data) {
+            var text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+            if (!text) throw new Error('Empty response from Ollama');
+            return stripFences(text);
+          });
+      }
 
       if (provider === 'openai') {
         return fetch('https://api.openai.com/v1/chat/completions', {
@@ -2028,24 +2051,29 @@ body {
       var PLACEHOLDERS = {
         anthropic: 'sk-ant-api03-…',
         openai:    'sk-… or sk-proj-…',
-        gemini:    'AIza…'
+        gemini:    'AIza…',
+        ollama:    'Model name, e.g. llama3.2 (optional, default: llama3.2)'
       };
 
-      var proxyWarn = document.getElementById('srb-ai-proxy-warn');
+      var proxyWarn   = document.getElementById('srb-ai-proxy-warn');
+      var ollamaWarn  = document.getElementById('srb-ai-ollama-warn');
       function syncProvider() {
         var p = window.__aiGetProvider ? window.__aiGetProvider() : 'anthropic';
         providerBtns.forEach(function (btn) {
           btn.classList.toggle('active', btn.dataset.provider === p);
         });
         if (keyInput) keyInput.placeholder = PLACEHOLDERS[p] || 'API key…';
-        if (proxyWarn) proxyWarn.classList.toggle('show', p === 'openai');
+        if (proxyWarn)  proxyWarn.classList.toggle('show', p === 'openai');
+        if (ollamaWarn) ollamaWarn.classList.toggle('show', p === 'ollama');
+        if (keyBtn) keyBtn.textContent = p === 'ollama' ? '⚙ Set model' : (window.__aiEnabled && window.__aiEnabled() ? '🔑 Change key' : '🔑 Set API key');
       }
 
       function syncBadges() {
         var on = window.__aiEnabled && window.__aiEnabled();
+        var isOllama = window.__aiGetProvider && window.__aiGetProvider() === 'ollama';
         if (badge)    badge.classList.toggle('show', on);
         if (hdrBadge) hdrBadge.classList.toggle('show', on);
-        if (keyBtn)   keyBtn.textContent = on ? '🔑 Change key' : '🔑 Set API key';
+        if (keyBtn)   keyBtn.textContent = isOllama ? '⚙ Set model' : (on ? '🔑 Change key' : '🔑 Set API key');
         if (srbInput) srbInput.dispatchEvent(new Event('input'));
       }
 
